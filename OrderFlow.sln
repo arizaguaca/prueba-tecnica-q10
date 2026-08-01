@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{338F3897-FBAC-4B7B-AFEF-7B30A48046D0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrdersApi", "src\orders-api\OrdersApi.csproj", "{0C61EE9F-E1E5-4A38-A22D-2B90F99AAA67}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InventoryWorker", "src\inventory-worker\InventoryWorker.csproj", "{116DCB90-6366-47F4-8108-B45FA835F87D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0C61EE9F-E1E5-4A38-A22D-2B90F99AAA67}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C61EE9F-E1E5-4A38-A22D-2B90F99AAA67}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C61EE9F-E1E5-4A38-A22D-2B90F99AAA67}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C61EE9F-E1E5-4A38-A22D-2B90F99AAA67}.Release|Any CPU.Build.0 = Release|Any CPU
+		{116DCB90-6366-47F4-8108-B45FA835F87D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{116DCB90-6366-47F4-8108-B45FA835F87D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{116DCB90-6366-47F4-8108-B45FA835F87D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{116DCB90-6366-47F4-8108-B45FA835F87D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0C61EE9F-E1E5-4A38-A22D-2B90F99AAA67} = {338F3897-FBAC-4B7B-AFEF-7B30A48046D0}
+		{116DCB90-6366-47F4-8108-B45FA835F87D} = {338F3897-FBAC-4B7B-AFEF-7B30A48046D0}
+	EndGlobalSection
+EndGlobal

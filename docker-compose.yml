@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # 1. Base de Datos
+  db:
+    image: postgres:16-alpine
+    container_name: test-q10-db
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: test_q10_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d test_q10_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Broker de Mensajería
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: test-q10-rabbitmq
+    ports:
+      - "5672:5672" # Puerto de comunicación AMQP
+      - "15672:15672" # Dashboard web de gestión
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 3. Orders API
+  orders-api:
+    build:
+      context: ./src/orders-api
+      dockerfile: Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=db;Database=orderflow_db;Username=${DB_USER};Password=${DB_PASSWORD}
+      - RabbitMQ__Host=rabbitmq
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # 4. Inventory Worker
+  inventory-worker:
+    build:
+      context: ./src/inventory-worker
+      dockerfile: Dockerfile
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=db;Database=orderflow_db;Username=${DB_USER};Password=${DB_PASSWORD}
+      - RabbitMQ__Host=rabbitmq
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # 5. Frontend
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - orders-api
+
+volumes:
+  postgres_data:
