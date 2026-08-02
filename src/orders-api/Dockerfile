@@ -15,6 +15,8 @@ RUN dotnet publish "OrdersApi.csproj" -c Release -o /app/publish /p:UseAppHost=f
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS final
 WORKDIR /app
 
+RUN apk add --no-cache curl
+
 ENV ASPNETCORE_URLS=http://+:5051
 EXPOSE 5051
 

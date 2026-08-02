@@ -1,8 +1,10 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using InventoryWorker.Application.Consumers;
 using InventoryWorker.Application.Contracts.Events;
 using InventoryWorker.Domain.Entities;
+using InventoryWorker.Infrastructure.Configuration;
 using InventoryWorker.Infrastructure.Persistence;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -18,6 +20,11 @@ if (string.IsNullOrWhiteSpace(connectionString))
 builder.Services.AddDbContext<InventoryDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+builder.Services.AddOptions<RabbitMqOptions>()
+    .BindConfiguration(RabbitMqOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
 // 2. Configurar MassTransit con RabbitMQ
 builder.Services.AddMassTransit(x =>
 {
@@ -25,17 +32,12 @@ builder.Services.AddMassTransit(x =>
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        var rabbitHost = builder.Configuration["RabbitMQ:Host"]
-            ?? throw new InvalidOperationException("RabbitMQ:Host no está configurado.");
-        var rabbitUser = builder.Configuration["RabbitMQ:Username"]
-            ?? throw new InvalidOperationException("RabbitMQ:Username no está configurado.");
-        var rabbitPass = builder.Configuration["RabbitMQ:Password"]
-            ?? throw new InvalidOperationException("RabbitMQ:Password no está configurado.");
+        var rabbitOptions = context.GetRequiredService<IOptions<RabbitMqOptions>>().Value;
 
-        cfg.Host(rabbitHost, "/", h =>
+        cfg.Host(rabbitOptions.Host, "/", h =>
         {
-            h.Username(rabbitUser);
-            h.Password(rabbitPass);
+            h.Username(rabbitOptions.Username);
+            h.Password(rabbitOptions.Password);
         });
 
         cfg.UseRawJsonSerializer(RawSerializerOptions.AddTransportHeaders | RawSerializerOptions.CopyHeaders, isDefault: true);

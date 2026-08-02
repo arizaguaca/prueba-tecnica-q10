@@ -28,11 +28,11 @@ public class StockReservedConsumer : IConsumer<StockReservedEvent>
         var message = context.Message;
         _logger.LogInformation("StockReservedEvent recibido para OrderId: {OrderId}", message.OrderId);
 
-        var order = await _orderRepository.GetByIdAsync(message.OrderId);
+        var order = await _orderRepository.GetByIdAsync(message.OrderId, context.CancellationToken);
         if (order != null)
         {
             order.ConfirmOrder();
-            await _orderRepository.UpdateAsync(order);
+            await _orderRepository.UpdateAsync(order, context.CancellationToken);
             _logger.LogInformation("Pedido {OrderId} confirmado exitosamente.", order.Id);
 
             var response = new OrderResponse(

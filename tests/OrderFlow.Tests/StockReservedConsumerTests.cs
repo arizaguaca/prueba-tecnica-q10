@@ -23,7 +23,7 @@ public class StockReservedConsumerTests
         order.Estado.Should().Be(OrderStatus.Pending); // Verifica estado inicial en Pending
 
         var orderRepoMock = new Mock<IOrderRepository>();
-        orderRepoMock.Setup(r => r.GetByIdAsync(order.Id)).ReturnsAsync(order);
+        orderRepoMock.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
 
         var hubContextMock = new Mock<IHubContext<OrderHub>>();
         var clientsMock = new Mock<IHubClients>();
@@ -49,6 +49,6 @@ public class StockReservedConsumerTests
 
         // Assert
         order.Estado.Should().Be(OrderStatus.Confirmed);
-        orderRepoMock.Verify(r => r.UpdateAsync(It.Is<Order>(o => o.Id == order.Id && o.Estado == OrderStatus.Confirmed)), Times.Once);
+        orderRepoMock.Verify(r => r.UpdateAsync(It.Is<Order>(o => o.Id == order.Id && o.Estado == OrderStatus.Confirmed), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

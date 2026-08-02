@@ -104,6 +104,7 @@ export const useOrders = () => {
         success: false,
         error: err.message || 'Error al guardar el pedido.',
         errors: err.errors || null,
+        fieldErrors: err.fieldErrors || null,
       };
     }
   }, []);

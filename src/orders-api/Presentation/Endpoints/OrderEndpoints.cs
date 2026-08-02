@@ -13,19 +13,20 @@ public static class OrderEndpoints
         var group = app.MapGroup("/orders");
 
         group.MapPost("/", async (
-            CreateOrderRequest request, 
-            IValidator<CreateOrderRequest> validator, 
-            IOrderRepository repository, 
-            IEventPublisher publisher) =>
+            CreateOrderRequest request,
+            IValidator<CreateOrderRequest> validator,
+            IOrderRepository repository,
+            IEventPublisher publisher,
+            CancellationToken cancellationToken) =>
         {
-            var validationResult = await validator.ValidateAsync(request);
+            var validationResult = await validator.ValidateAsync(request, cancellationToken);
             if (!validationResult.IsValid)
             {
                 return Results.ValidationProblem(validationResult.ToDictionary());
             }
 
             var order = new Order(request.ClienteNombre, request.Sku, request.Cantidad);
-            await repository.AddAsync(order);
+            await repository.AddAsync(order, cancellationToken);
 
             var @event = new OrderCreatedEvent(
                 EventId: Guid.NewGuid(),
@@ -51,9 +52,9 @@ public static class OrderEndpoints
         .WithName("CreateOrder")
         .WithOpenApi();
 
-        group.MapGet("/", async (IOrderRepository repository) =>
+        group.MapGet("/", async (IOrderRepository repository, CancellationToken cancellationToken) =>
         {
-            var orders = await repository.GetAllAsync();
+            var orders = await repository.GetAllAsync(cancellationToken);
             var response = orders.Select(order => new OrderResponse(
                 order.Id,
                 order.ClienteNombre,
@@ -67,9 +68,9 @@ public static class OrderEndpoints
         .WithName("GetOrders")
         .WithOpenApi();
 
-        group.MapGet("/{id:guid}", async (Guid id, IOrderRepository repository) =>
+        group.MapGet("/{id:guid}", async (Guid id, IOrderRepository repository, CancellationToken cancellationToken) =>
         {
-            var order = await repository.GetByIdAsync(id);
+            var order = await repository.GetByIdAsync(id, cancellationToken);
             if (order == null)
             {
                 return Results.NotFound();

@@ -28,11 +28,11 @@ public class StockRejectedConsumer : IConsumer<StockRejectedEvent>
         var message = context.Message;
         _logger.LogInformation("StockRejectedEvent recibido para OrderId: {OrderId}. Motivo: {Motivo}", message.OrderId, message.Motivo);
 
-        var order = await _orderRepository.GetByIdAsync(message.OrderId);
+        var order = await _orderRepository.GetByIdAsync(message.OrderId, context.CancellationToken);
         if (order != null)
         {
             order.RejectOrder();
-            await _orderRepository.UpdateAsync(order);
+            await _orderRepository.UpdateAsync(order, context.CancellationToken);
             _logger.LogInformation("Pedido {OrderId} rechazado. Motivo: {Motivo}", order.Id, message.Motivo);
 
             var response = new OrderResponse(

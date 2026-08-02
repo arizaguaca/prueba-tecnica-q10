@@ -2,10 +2,12 @@ using System.Text.Json.Serialization;
 using FluentValidation;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using OrdersApi.Application.Consumers;
 using OrdersApi.Application.Contracts.Events;
 using OrdersApi.Application.Interfaces;
 using OrdersApi.Application.Validation;
+using OrdersApi.Infrastructure.Configuration;
 using OrdersApi.Infrastructure.Messaging;
 using OrdersApi.Infrastructure.Persistence;
 using OrdersApi.Presentation.Endpoints;
@@ -47,14 +49,30 @@ if (string.IsNullOrWhiteSpace(connectionString))
 builder.Services.AddDbContext<OrdersDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// 3. Registro de Repositorio y Event Publisher
+// 3. Configuración tipada RabbitMQ
+builder.Services.AddOptions<RabbitMqOptions>()
+    .BindConfiguration(RabbitMqOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+// 4. Registro de Repositorio y Event Publisher
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IProductCatalogRepository, ProductCatalogRepository>();
 builder.Services.AddScoped<IEventPublisher, MassTransitEventPublisher>();
 
-// 4. Registro de Validadores (FluentValidation)
+// 5. Registro de Validadores (FluentValidation)
 builder.Services.AddValidatorsFromAssemblyContaining<CreateOrderRequestValidator>();
 
-// 5. Configuración de MassTransit con RabbitMQ
+// 6. Health Checks
+var rabbitConfig = builder.Configuration.GetSection(RabbitMqOptions.SectionName).Get<RabbitMqOptions>()
+    ?? throw new InvalidOperationException("RabbitMQ no está configurado.");
+var rabbitUri = new Uri($"amqp://{rabbitConfig.Username}:{rabbitConfig.Password}@{rabbitConfig.Host}:5672/");
+
+builder.Services.AddHealthChecks()
+    .AddNpgSql(connectionString, name: "postgresql")
+    .AddRabbitMQ(rabbitUri, name: "rabbitmq");
+
+// 7. Configuración de MassTransit con RabbitMQ
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<StockReservedConsumer>();
@@ -62,22 +80,16 @@ builder.Services.AddMassTransit(x =>
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        var rabbitHost = builder.Configuration["RabbitMQ:Host"]
-            ?? throw new InvalidOperationException("RabbitMQ:Host no está configurado.");
-        var rabbitUser = builder.Configuration["RabbitMQ:Username"]
-            ?? throw new InvalidOperationException("RabbitMQ:Username no está configurado.");
-        var rabbitPass = builder.Configuration["RabbitMQ:Password"]
-            ?? throw new InvalidOperationException("RabbitMQ:Password no está configurado.");
+        var rabbitOptions = context.GetRequiredService<IOptions<RabbitMqOptions>>().Value;
 
-        cfg.Host(rabbitHost, "/", h =>
+        cfg.Host(rabbitOptions.Host, "/", h =>
         {
-            h.Username(rabbitUser);
-            h.Password(rabbitPass);
+            h.Username(rabbitOptions.Username);
+            h.Password(rabbitOptions.Password);
         });
 
         cfg.UseRawJsonSerializer(RawSerializerOptions.AddTransportHeaders | RawSerializerOptions.CopyHeaders, isDefault: true);
 
-        // Mismo entity name en ambos servicios para que publish/consume usen el mismo exchange
         cfg.Message<OrderCreatedEvent>(m => m.SetEntityName("order-created-event"));
         cfg.Message<StockReservedEvent>(m => m.SetEntityName("stock-reserved-event"));
         cfg.Message<StockRejectedEvent>(m => m.SetEntityName("stock-rejected-event"));
@@ -88,26 +100,19 @@ builder.Services.AddMassTransit(x =>
 
 var app = builder.Build();
 
-// Habilitar CORS
 app.UseCors("AllowFrontend");
-
-// 6. Aplicar Middleware de Manejo de Errores Global
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
-// 7. Pipeline de HTTP / Swagger
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// app.UseHttpsRedirection();
-
-// 8. Mapear Endpoints de la Aplicación y Hub de SignalR
+app.MapHealthChecks("/health");
 app.MapOrderEndpoints();
 app.MapHub<OrderHub>("/hubs/orders");
 
-// 9. Inicializar tabla Orders al arrancar (CREATE IF NOT EXISTS + reintentos)
 using (var scope = app.Services.CreateScope())
 {
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
@@ -120,8 +125,6 @@ using (var scope = app.Services.CreateScope())
         {
             logger.LogInformation("Asegurando la creación de la tabla Orders...");
 
-            // CREATE TABLE IF NOT EXISTS evita la condición de carrera con inventory-worker:
-            // EnsureCreatedAsync no crea tablas si la BD ya tiene otras (Stocks, ProcessedEvents).
             await dbContext.Database.ExecuteSqlRawAsync(@"
                 CREATE TABLE IF NOT EXISTS ""Orders"" (
                     ""Id""             uuid                     NOT NULL,

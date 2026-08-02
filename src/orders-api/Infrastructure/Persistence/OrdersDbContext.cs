@@ -8,6 +8,7 @@ public class OrdersDbContext : DbContext
     public OrdersDbContext(DbContextOptions<OrdersDbContext> options) : base(options) { }
 
     public DbSet<Order> Orders => Set<Order>();
+    public DbSet<StockCatalogEntry> StockCatalog => Set<StockCatalogEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -22,6 +23,13 @@ public class OrdersDbContext : DbContext
             entity.Property(e => e.Cantidad).IsRequired();
             entity.Property(e => e.Estado).IsRequired().HasConversion<string>();
             entity.Property(e => e.CreadoEn).IsRequired();
+        });
+
+        modelBuilder.Entity<StockCatalogEntry>(entity =>
+        {
+            entity.ToTable("Stocks");
+            entity.HasKey(e => e.Sku);
+            entity.Property(e => e.Sku).HasColumnName("Sku");
         });
     }
 }

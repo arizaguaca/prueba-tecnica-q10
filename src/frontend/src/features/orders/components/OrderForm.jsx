@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { Alert } from '../../../components/Alert';
 
+const SKU_OPTIONS = [
+  { value: 'ABC-01', label: 'ABC-01 (10 disponibles)' },
+  { value: 'ABC-02', label: 'ABC-02 (5 disponibles)' },
+  { value: 'ABC-03', label: 'ABC-03 (agotado)' },
+];
+
 export const OrderForm = ({ onSubmit }) => {
   const [clienteNombre, setClienteNombre] = useState('');
   const [sku, setSku] = useState('ABC-01');
@@ -16,7 +22,7 @@ export const OrderForm = ({ onSubmit }) => {
     if (!clienteNombre.trim()) {
       errors.clienteNombre = 'El nombre del cliente es obligatorio.';
     }
-    if (!sku) {
+    if (!sku.trim()) {
       errors.sku = 'El SKU es obligatorio.';
     }
     const cantNum = parseInt(cantidad, 10);
@@ -38,7 +44,7 @@ export const OrderForm = ({ onSubmit }) => {
     setLoading(true);
     const result = await onSubmit({
       clienteNombre: clienteNombre.trim(),
-      sku,
+      sku: sku.trim(),
       cantidad: parseInt(cantidad, 10),
     });
     setLoading(false);
@@ -50,15 +56,8 @@ export const OrderForm = ({ onSubmit }) => {
       setSku('ABC-01');
     } else {
       setErrorMsg(result.error);
-      if (result.errors) {
-        // If the backend returns detailed validation errors (RFC 7807)
-        // Convert FluentValidation fields to lowercase keys for comparison
-        const normalizedErrors = {};
-        Object.entries(result.errors).forEach(([key, messages]) => {
-          const fieldName = key.charAt(0).toLowerCase() + key.slice(1);
-          normalizedErrors[fieldName] = Array.isArray(messages) ? messages[0] : messages;
-        });
-        setFieldErrors(normalizedErrors);
+      if (result.fieldErrors && Object.keys(result.fieldErrors).length > 0) {
+        setFieldErrors(result.fieldErrors);
       }
     }
   };
@@ -88,17 +87,24 @@ export const OrderForm = ({ onSubmit }) => {
         <div className="form-row">
           <div className="form-group flex-1">
             <label htmlFor="sku" className="form-label">Producto (SKU)</label>
-            <select
+            <input
               id="sku"
+              type="text"
+              list="sku-options"
               className={`form-input ${fieldErrors.sku ? 'input-error' : ''}`}
+              placeholder="Ej. ABC-01"
               value={sku}
               onChange={(e) => setSku(e.target.value)}
               disabled={loading}
-            >
-              <option value="ABC-01">ABC-01 (10 disponibles inicialmente)</option>
-              <option value="ABC-02">ABC-02 (5 disponibles inicialmente)</option>
-              <option value="ABC-03">ABC-03 (Agotado inicialmente)</option>
-            </select>
+              autoComplete="off"
+            />
+            <datalist id="sku-options">
+              {SKU_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </datalist>
             {fieldErrors.sku && <span className="error-text">{fieldErrors.sku}</span>}
           </div>
 

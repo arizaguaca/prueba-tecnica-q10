@@ -13,25 +13,25 @@ public class OrderRepository : IOrderRepository
         _context = context;
     }
 
-    public async Task<Order?> GetByIdAsync(Guid id)
+    public async Task<Order?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _context.Orders.FindAsync(id);
+        return await _context.Orders.FindAsync([id], cancellationToken);
     }
 
-    public async Task<IEnumerable<Order>> GetAllAsync()
+    public async Task<IEnumerable<Order>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.Orders.ToListAsync();
+        return await _context.Orders.ToListAsync(cancellationToken);
     }
 
-    public async Task AddAsync(Order order)
+    public async Task AddAsync(Order order, CancellationToken cancellationToken = default)
     {
-        await _context.Orders.AddAsync(order);
-        await _context.SaveChangesAsync();
+        await _context.Orders.AddAsync(order, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task UpdateAsync(Order order)
+    public async Task UpdateAsync(Order order, CancellationToken cancellationToken = default)
     {
         _context.Orders.Update(order);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }

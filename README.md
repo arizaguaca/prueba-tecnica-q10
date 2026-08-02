@@ -8,7 +8,11 @@ El flujo principal es **asíncrono y orientado a eventos (EDA)**: la creación d
 
 ---
 
+
+
 ## 🏛️ 1. Arquitectura del Sistema
+
+
 
 ### Diagrama de componentes
 
@@ -67,12 +71,18 @@ El flujo principal es **asíncrono y orientado a eventos (EDA)**: la creación d
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+
+
 ### Separación de responsabilidades
 
-| Servicio | Rol | Responsabilidades |
-|---|---|---|
-| **Orders API** | Orquestador de pedidos / productor-consumidor de estados | Expone la API REST, persiste pedidos, publica `OrderCreatedEvent`, consume respuestas de inventario (`StockReserved` / `StockRejected`), actualiza el estado del pedido y notifica al frontend vía SignalR. |
-| **Inventory Worker** | Procesador de stock / consumidor-productor | Consume `OrderCreatedEvent`, valida disponibilidad, descuenta stock en transacción atómica, garantiza idempotencia con `ProcessedEvents` y publica el resultado. **No expone HTTP** — opera exclusivamente por mensajería. |
+
+| Servicio             | Rol                                                      | Responsabilidades                                                                                                                                                                                                          |
+| -------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Orders API**       | Orquestador de pedidos / productor-consumidor de estados | Expone la API REST, persiste pedidos, publica `OrderCreatedEvent`, consume respuestas de inventario (`StockReserved` / `StockRejected`), actualiza el estado del pedido y notifica al frontend vía SignalR.                |
+| **Inventory Worker** | Procesador de stock / consumidor-productor               | Consume `OrderCreatedEvent`, valida disponibilidad, descuenta stock en transacción atómica, garantiza idempotencia con `ProcessedEvents` y publica el resultado. **No expone HTTP** — opera exclusivamente por mensajería. |
+
+
+
 
 ### Flujo de un pedido (EDA)
 
@@ -88,7 +98,11 @@ El flujo principal es **asíncrono y orientado a eventos (EDA)**: la creación d
 
 ---
 
+
+
 ## 🛠️ 2. Decisiones de Diseño y Stack Tecnológico
+
+
 
 ### .NET 8 & Clean Architecture
 
@@ -105,11 +119,14 @@ Presentation/    → Endpoints REST, Hubs SignalR, middleware (solo Orders API)
 
 ---
 
+
+
 ### MassTransit + RabbitMQ
 
 Se utiliza **MassTransit 8** como abstracción sobre **RabbitMQ** para implementar un patrón **Pub/Sub asíncrono**.
 
 **Justificación:**
+
 - Desacopla la creación de pedidos de la reserva de stock (resiliencia y escalabilidad independiente).
 - MassTransit gestiona topología de exchanges/colas, reintentos y serialización.
 - RabbitMQ es el estándar de facto para mensajería en arquitecturas distribuidas.
@@ -122,32 +139,41 @@ Cada microservicio define sus propios contratos en `Application/Contracts/Events
 - `[MessageUrn("OrderFlow:...")]` — unifica la identidad del mensaje en los headers de transporte.
 - `UseRawJsonSerializer(AddTransportHeaders | CopyHeaders)` — serialización JSON interoperable entre servicios .NET independientes.
 
-| Evento | Dirección | Exchange |
-|---|---|---|
-| `OrderCreatedEvent` | Orders API → Inventory Worker | `order-created-event` |
+
+| Evento               | Dirección                     | Exchange               |
+| -------------------- | ----------------------------- | ---------------------- |
+| `OrderCreatedEvent`  | Orders API → Inventory Worker | `order-created-event`  |
 | `StockReservedEvent` | Inventory Worker → Orders API | `stock-reserved-event` |
 | `StockRejectedEvent` | Inventory Worker → Orders API | `stock-rejected-event` |
 
+
 ---
+
+
 
 ### Entity Framework Core + PostgreSQL
 
 **PostgreSQL 16** como base de datos relacional compartida, accedida vía **EF Core 8** con provider Npgsql.
 
 **Justificación:**
+
 - Transacciones ACID para la reserva de stock (descuento + registro de evento procesado en una sola unidad atómica).
 - PostgreSQL es robusto, open-source y ampliamente adoptado en producción.
 - `EnsureCreated` / SQL idempotente al arranque simplifica el bootstrap en entornos Docker.
 
 **Datos semilla de inventario:**
 
-| SKU | Stock inicial | Comportamiento esperado |
-|---|---|---|
-| `ABC-01` | 10 unidades | Reserva exitosa |
-| `ABC-02` | 5 unidades | Reserva exitosa hasta agotar stock |
-| `ABC-03` | 0 unidades | Rechazo inmediato |
+
+| SKU      | Stock inicial | Comportamiento esperado            |
+| -------- | ------------- | ---------------------------------- |
+| `ABC-01` | 10 unidades   | Reserva exitosa                    |
+| `ABC-02` | 5 unidades    | Reserva exitosa hasta agotar stock |
+| `ABC-03` | 0 unidades    | Rechazo inmediato                  |
+
 
 ---
+
+
 
 ### Idempotencia (`ProcessedEvents`)
 
@@ -161,6 +187,8 @@ El consumidor `OrderCreatedConsumer` garantiza **exactly-once semantics** a nive
 Esto protege contra **entregas duplicadas** de RabbitMQ (at-least-once delivery), evitando doble descuento de inventario.
 
 ---
+
+
 
 ### React (Vite) + Feature-Based Architecture
 
@@ -178,11 +206,14 @@ src/features/orders/
 
 ---
 
+
+
 ### SignalR (WebSockets)
 
 Tras consumir `StockReservedEvent` o `StockRejectedEvent`, la Orders API emite `OrderUpdated` al hub `/hubs/orders`.
 
 El hook `useOrders` combina:
+
 - **REST** como carga inicial y fallback.
 - **SignalR** para actualizaciones en tiempo real.
 
@@ -190,12 +221,18 @@ El hook `useOrders` combina:
 
 ---
 
+
+
 ## ⚡ 3. Cómo Ejecutar el Proyecto
+
+
 
 ### Requisitos previos
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) en ejecución.
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) (opcional — solo necesario para tests locales fuera de Docker).
+
+
 
 ### Configuración de variables de entorno
 
@@ -213,21 +250,29 @@ cp src/frontend/.env.example src/frontend/.env
 
 > **Importante:** Docker Compose lee exclusivamente del archivo `.env` en la raíz. No existen valores por defecto en `docker-compose.yml` — todas las variables son obligatorias.
 
+
+
 ### Levantar todo el sistema con un solo comando
 
 ```bash
 docker compose up --build
 ```
 
+
+
 ### URLs de acceso
 
-| Servicio | URL | Descripción |
-|---|---|---|
-| **Frontend** | http://localhost:3000 | Interfaz web de pedidos |
-| **Orders API** | http://localhost:5051 | API REST |
-| **Swagger UI** | http://localhost:5051/swagger | Documentación interactiva de la API |
-| **RabbitMQ Management** | http://localhost:15672 | Dashboard del broker (`guest` / `guest` por defecto) |
-| **PostgreSQL** | `localhost:5432` | Base de datos (acceso directo opcional) |
+
+| Servicio                | URL                                                            | Descripción                                          |
+| ----------------------- | -------------------------------------------------------------- | ---------------------------------------------------- |
+| **Frontend**            | [http://localhost:3000](http://localhost:3000)                 | Interfaz web de pedidos                              |
+| **Orders API**          | [http://localhost:5051](http://localhost:5051)                 | API REST                                             |
+| **Swagger UI**          | [http://localhost:5051/swagger](http://localhost:5051/swagger) | Documentación interactiva de la API                  |
+| **RabbitMQ Management** | [http://localhost:15672](http://localhost:15672)               | Dashboard del broker (`guest` / `guest` por defecto) |
+| **PostgreSQL**          | `localhost:5432`                                               | Base de datos (acceso directo opcional)              |
+
+
+
 
 ### Verificar el flujo completo
 
@@ -250,11 +295,14 @@ dotnet test
 ```
 
 Cobertura principal:
+
 - Validación de entrada (`FluentValidation`) en Orders API.
 - Idempotencia del consumidor de inventario.
 - Confirmación/rechazo de pedidos vía consumidores de respuesta.
 
 ---
+
+
 
 ## 📁 4. Estructura del Monorepo
 
@@ -286,15 +334,19 @@ OrderFlow/
 
 ---
 
+
+
 ## 🛡️ 5. Análisis de Resiliencia y Manejo de Fallos
 
 Esta sección responde explícitamente a escenarios de falla distribuida, un requisito clave en sistemas orientados a eventos.
 
 ### Escenarios críticos de falla distribuida
 
+
+
 #### ¿Qué pasa si `InventoryWorker` no responde o está caído?
 
-El evento `OrderCreatedEvent` **permanece guardado de forma persistente en la cola de RabbitMQ**. El pedido se mantiene en estado **`Pending`**. Tan pronto como el servicio `InventoryWorker` se restablece, consume los eventos pendientes y actualiza las órdenes en segundo plano.
+El evento `OrderCreatedEvent` **permanece guardado de forma persistente en la cola de RabbitMQ**. El pedido se mantiene en estado `Pending`. Tan pronto como el servicio `InventoryWorker` se restablece, consume los eventos pendientes y actualiza las órdenes en segundo plano.
 
 > **Garantía:** Consistencia Eventual. El sistema no pierde pedidos; solo difiere la confirmación o rechazo hasta que el worker vuelva a estar disponible.
 
@@ -303,6 +355,8 @@ Orders API ──► RabbitMQ (cola persistente) ──X── Inventory Worker 
                      │
                      └── Mensajes retenidos hasta recovery del worker
 ```
+
+
 
 #### ¿Qué pasa si el broker de mensajería (RabbitMQ) está caído cuando `OrdersApi` intenta publicar?
 
@@ -314,18 +368,24 @@ El `GlobalExceptionHandlerMiddleware` centraliza el manejo de errores no control
 
 ---
 
+
+
 ### Matriz de escenarios adicionales
 
-| Escenario | Comportamiento |
-|---|---|
-| **Stock insuficiente** | Worker publica `StockRejectedEvent` → pedido pasa a `Rejected`. |
-| **SKU inexistente** | Mismo flujo de rechazo con motivo descriptivo. |
-| **Entrega duplicada del evento** | Tabla `ProcessedEvents` evita doble descuento; re-publica la respuesta original. |
-| **Worker caído temporalmente** | RabbitMQ retiene mensajes en cola; al reiniciar, el worker los procesa. |
-| **RabbitMQ caído al publicar** | Excepción capturada → respuesta HTTP controlada al cliente (sin timeout silencioso). |
-| **Error no controlado en API** | `GlobalExceptionHandlerMiddleware` retorna `ProblemDetails` (RFC 7807). |
-| **Frontend desconectado de SignalR** | Reconexión automática (`withAutomaticReconnect`); REST como fallback. |
-| **Configuración faltante** | Los servicios .NET fallan al arrancar con mensaje explícito si falta connection string o credenciales RabbitMQ. |
+
+| Escenario                            | Comportamiento                                                                                                  |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| **Stock insuficiente**               | Worker publica `StockRejectedEvent` → pedido pasa a `Rejected`.                                                 |
+| **SKU inexistente**                  | Mismo flujo de rechazo con motivo descriptivo.                                                                  |
+| **Entrega duplicada del evento**     | Tabla `ProcessedEvents` evita doble descuento; re-publica la respuesta original.                                |
+| **Worker caído temporalmente**       | RabbitMQ retiene mensajes en cola; al reiniciar, el worker los procesa.                                         |
+| **RabbitMQ caído al publicar**       | Excepción capturada → respuesta HTTP controlada al cliente (sin timeout silencioso).                            |
+| **Error no controlado en API**       | `GlobalExceptionHandlerMiddleware` retorna `ProblemDetails` (RFC 7807).                                         |
+| **Frontend desconectado de SignalR** | Reconexión automática (`withAutomaticReconnect`); REST como fallback.                                           |
+| **Configuración faltante**           | Los servicios .NET fallan al arrancar con mensaje explícito si falta connection string o credenciales RabbitMQ. |
+
+
+
 
 ### Estados del pedido
 
@@ -336,21 +396,27 @@ Pending ──► Confirmed   (stock reservado exitosamente)
 
 ---
 
+
+
 ## ⚖️ 6. Trade-offs Asumidos
 
-| Decisión | Beneficio | Costo / Limitación |
-|---|---|---|
-| **Base de datos compartida** | Simplicidad operativa en prueba técnica; un solo PostgreSQL en Docker. | En producción, cada servicio debería tener su propia BD (Database per Service). |
-| **Contratos duplicados por servicio** | Autonomía total de cada microservicio; sin librería compartida. | Requiere sincronización manual de contratos + configuración MassTransit (`MessageUrn`, `SetEntityName`). |
-| **`EnsureCreated` vs Migraciones** | Bootstrap automático sin pasos manuales en Docker. | No es ideal para evolución de esquema en producción (usar EF Migrations). |
-| **At-least-once delivery** | Simplicidad del broker; estándar en RabbitMQ. | Requiere idempotencia en el consumidor (implementada vía `ProcessedEvents`). |
-| **Sin API Gateway / Service Mesh** | Menor complejidad infraestructural. | En producción se añadiría un gateway (YARP, Kong, etc.) para enrutamiento y auth. |
-| **Sin autenticación/autorización** | Foco en arquitectura distribuida y flujo de eventos. | En producción se integraría JWT/OAuth2 y políticas de acceso. |
-| **SignalR sin backplane Redis** | Suficiente para instancia única de API. | Con múltiples réplicas de Orders API se requeriría Redis backplane. |
+
+| Decisión                              | Beneficio                                                              | Costo / Limitación                                                                                       |
+| ------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Base de datos compartida**          | Simplicidad operativa en prueba técnica; un solo PostgreSQL en Docker. | En producción, cada servicio debería tener su propia BD (Database per Service).                          |
+| **Contratos duplicados por servicio** | Autonomía total de cada microservicio; sin librería compartida.        | Requiere sincronización manual de contratos + configuración MassTransit (`MessageUrn`, `SetEntityName`). |
+| `EnsureCreated` **vs Migraciones**    | Bootstrap automático sin pasos manuales en Docker.                     | No es ideal para evolución de esquema en producción (usar EF Migrations).                                |
+| **At-least-once delivery**            | Simplicidad del broker; estándar en RabbitMQ.                          | Requiere idempotencia en el consumidor (implementada vía `ProcessedEvents`).                             |
+| **Sin API Gateway / Service Mesh**    | Menor complejidad infraestructural.                                    | En producción se añadiría un gateway (YARP, Kong, etc.) para enrutamiento y auth.                        |
+| **Sin autenticación/autorización**    | Foco en arquitectura distribuida y flujo de eventos.                   | En producción se integraría JWT/OAuth2 y políticas de acceso.                                            |
+| **SignalR sin backplane Redis**       | Suficiente para instancia única de API.                                | Con múltiples réplicas de Orders API se requeriría Redis backplane.                                      |
+
 
 ---
 
-## 🚀 7. ¿Qué haría distinto con más tiempo? 
+
+
+## 🚀 7. ¿Qué haría distinto con más tiempo?
 
 Con más tiempo  implementaría las siguientes mejoras arquitectónicas:
 
@@ -367,6 +433,8 @@ Para asegurar **atomicidad completa** entre el guardado del pedido en la BD y la
                     Background Processor
                     (lee outbox y publica)
 ```
+
+
 
 ### Resiliencia con Polly
 
@@ -389,47 +457,57 @@ GET /orders?page=1&pageSize=20&sortBy=creadoEn&sortDir=desc
 ```
 
 **Backend:**
+
 - DTO de respuesta paginada (`PagedResult<OrderResponse>`) con metadatos: `items`, `totalCount`, `page`, `pageSize`, `totalPages`.
 - Consulta EF Core con `Skip` / `Take` e índice en `CreadoEn` para ordenamiento eficiente.
 - Opcional: paginación por **cursor** (`?cursor=<lastId>`) para listas de alto volumen con mejor rendimiento que offset.
 
 **Frontend:**
+
 - Adaptar `useOrders` y `OrderList` para cargar páginas bajo demanda (infinite scroll o controles prev/next).
 - Mantener SignalR para actualizaciones en tiempo real solo sobre la página visible o invalidar caché al recibir `OrderUpdated`.
 
 ---
 
+
+
 ## 🔧 8. Configuración por Variables de Entorno
 
 Toda configuración sensible se externaliza. **No hay secretos ni connection strings en el código fuente.**
 
-| Variable | Descripción | Consumidor |
-|---|---|---|
-| `POSTGRES_DB` | Nombre de la base de datos | Docker Compose → PostgreSQL, API, Worker |
-| `POSTGRES_USER` | Usuario de PostgreSQL | Docker Compose → PostgreSQL, API, Worker |
-| `POSTGRES_PASSWORD` | Contraseña de PostgreSQL | Docker Compose → PostgreSQL, API, Worker |
-| `POSTGRES_PORT` | Puerto expuesto de PostgreSQL | Docker Compose |
-| `RABBITMQ_USER` | Usuario del broker | Docker Compose → RabbitMQ, API, Worker |
-| `RABBITMQ_PASS` | Contraseña del broker | Docker Compose → RabbitMQ, API, Worker |
-| `RABBITMQ_PORT` | Puerto AMQP | Docker Compose |
-| `RABBITMQ_UI_PORT` | Puerto Management UI | Docker Compose |
-| `ORDERS_API_PORT` | Puerto expuesto de la API | Docker Compose |
-| `FRONTEND_PORT` | Puerto expuesto del frontend | Docker Compose |
-| `VITE_API_URL` | URL de la API para el build del frontend | Docker Compose → Frontend |
+
+| Variable            | Descripción                              | Consumidor                               |
+| ------------------- | ---------------------------------------- | ---------------------------------------- |
+| `POSTGRES_DB`       | Nombre de la base de datos               | Docker Compose → PostgreSQL, API, Worker |
+| `POSTGRES_USER`     | Usuario de PostgreSQL                    | Docker Compose → PostgreSQL, API, Worker |
+| `POSTGRES_PASSWORD` | Contraseña de PostgreSQL                 | Docker Compose → PostgreSQL, API, Worker |
+| `POSTGRES_PORT`     | Puerto expuesto de PostgreSQL            | Docker Compose                           |
+| `RABBITMQ_USER`     | Usuario del broker                       | Docker Compose → RabbitMQ, API, Worker   |
+| `RABBITMQ_PASS`     | Contraseña del broker                    | Docker Compose → RabbitMQ, API, Worker   |
+| `RABBITMQ_PORT`     | Puerto AMQP                              | Docker Compose                           |
+| `RABBITMQ_UI_PORT`  | Puerto Management UI                     | Docker Compose                           |
+| `ORDERS_API_PORT`   | Puerto expuesto de la API                | Docker Compose                           |
+| `FRONTEND_PORT`     | Puerto expuesto del frontend             | Docker Compose                           |
+| `VITE_API_URL`      | URL de la API para el build del frontend | Docker Compose → Frontend                |
+
 
 Para desarrollo local fuera de Docker, los servicios .NET leen de `appsettings.Development.json` (gitignored; plantilla en `.example`).
 
 ---
 
+
+
 ## 📡 9. API REST — Referencia Rápida
 
-| Método | Endpoint | Descripción |
-|---|---|---|
-| `POST` | `/orders` | Crear pedido |
-| `GET` | `/orders` | Listar todos los pedidos |
-| `GET` | `/orders/{id}` | Obtener pedido por ID |
 
-**Body de creación (`POST /orders`):**
+| Método | Endpoint       | Descripción              |
+| ------ | -------------- | ------------------------ |
+| `POST` | `/orders`      | Crear pedido             |
+| `GET`  | `/orders`      | Listar todos los pedidos |
+| `GET`  | `/orders/{id}` | Obtener pedido por ID    |
+
+
+**Body de creación (**`POST /orders`**):**
 
 ```json
 {
@@ -440,12 +518,10 @@ Para desarrollo local fuera de Docker, los servicios .NET leen de `appsettings.D
 ```
 
 **Validaciones:**
+
 - `clienteNombre`: obligatorio.
-- `sku`: obligatorio.
+- `sku`: obligatorio y debe existir en el catálogo de productos (`Stocks`).
 - `cantidad`: entero entre 1 y 100.
 
 ---
 
-## 👤 Autor
-
-Prueba técnica Fullstack Senior — **OrderFlow**
