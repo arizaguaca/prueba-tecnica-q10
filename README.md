@@ -297,7 +297,7 @@ dotnet test
 Cobertura principal:
 
 - Validación de entrada (`FluentValidation`) en Orders API.
-- Idempotencia del consumidor de inventario.
+- Consumidor de inventario: reserva, rechazo e idempotencia.
 - Confirmación/rechazo de pedidos vía consumidores de respuesta.
 
 ---
@@ -328,8 +328,7 @@ OrderFlow/
 │       └── src/features/orders/
 │
 └── tests/
-    ├── OrderFlow.Tests/            # Tests de API y consumidores
-    └── InventoryWorker.Tests/      # Tests del worker
+    └── OrderFlow.Tests/            # Tests de API, worker y consumidores
 ```
 
 ---
