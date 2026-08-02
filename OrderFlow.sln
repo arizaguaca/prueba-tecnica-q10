@@ -9,7 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrdersApi", "src\orders-api
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InventoryWorker", "src\inventory-worker\InventoryWorker.csproj", "{116DCB90-6366-47F4-8108-B45FA835F87D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InventoryWorker.Tests", "tests\InventoryWorker.Tests\InventoryWorker.Tests.csproj", "{A5F01C9A-5984-48FE-98B2-F41C9BD83823}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrderFlow.Tests", "tests\OrderFlow.Tests\OrderFlow.Tests.csproj", "{D38E22FA-7212-4C67-A152-A9F71F7C5102}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -28,10 +28,10 @@ Global
 		{116DCB90-6366-47F4-8108-B45FA835F87D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{116DCB90-6366-47F4-8108-B45FA835F87D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{116DCB90-6366-47F4-8108-B45FA835F87D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A5F01C9A-5984-48FE-98B2-F41C9BD83823}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A5F01C9A-5984-48FE-98B2-F41C9BD83823}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A5F01C9A-5984-48FE-98B2-F41C9BD83823}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A5F01C9A-5984-48FE-98B2-F41C9BD83823}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D38E22FA-7212-4C67-A152-A9F71F7C5102}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D38E22FA-7212-4C67-A152-A9F71F7C5102}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D38E22FA-7212-4C67-A152-A9F71F7C5102}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D38E22FA-7212-4C67-A152-A9F71F7C5102}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{0C61EE9F-E1E5-4A38-A22D-2B90F99AAA67} = {338F3897-FBAC-4B7B-AFEF-7B30A48046D0}

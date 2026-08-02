@@ -1,4 +1,4 @@
-namespace OrdersApi.Application.Contracts.Events;
+namespace InventoryWorker.Application.Contracts.Events;
 
 public record OrderCreatedEvent(
     Guid EventId,

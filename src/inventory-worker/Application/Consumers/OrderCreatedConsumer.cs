@@ -1,6 +1,6 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
-using OrdersApi.Application.Contracts.Events;
+using InventoryWorker.Application.Contracts.Events;
 using InventoryWorker.Domain.Entities;
 using InventoryWorker.Infrastructure.Persistence;
 
