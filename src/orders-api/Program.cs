@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FluentValidation;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +16,14 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. Agregar Servicios Core / Endpoints API Explorer / Swagger / CORS / SignalR
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddSignalR();
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
+builder.Services.AddSignalR().AddJsonProtocol(options =>
+{
+    options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -77,24 +85,41 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection();
 
 // 8. Mapear Endpoints de la Aplicación y Hub de SignalR
 app.MapOrderEndpoints();
 app.MapHub<OrderHub>("/hubs/orders");
 
-// 9. Inicializar / Migrar Base de Datos Automáticamente al arrancar
+// 9. Inicializar / Migrar Base de Datos Automáticamente al arrancar con Reintentos
 using (var scope = app.Services.CreateScope())
 {
-    try
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    var dbContext = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
+    var retries = 5;
+
+    while (retries > 0)
     {
-        var dbContext = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
-        await dbContext.Database.EnsureCreatedAsync();
-    }
-    catch (Exception ex)
-    {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Ocurrió un error inicializando la base de datos.");
+        try
+        {
+            logger.LogInformation("Conectando e inicializando la base de datos de Orders...");
+            await dbContext.Database.EnsureCreatedAsync();
+            logger.LogInformation("Base de datos de Orders lista.");
+            break;
+        }
+        catch (Exception ex)
+        {
+            retries--;
+            logger.LogWarning(ex, "Error al conectar con la base de datos. Reintentos restantes: {Retries}", retries);
+            if (retries == 0)
+            {
+                logger.LogError(ex, "No se pudo conectar a la base de datos después de varios reintentos.");
+            }
+            else
+            {
+                await Task.Delay(3000);
+            }
+        }
     }
 }
 

@@ -37,5 +37,59 @@ services:
       timeout: 5s
       retries: 5
 
+  # 3. Orders API (.NET 8 Web API)
+  orders-api:
+    build:
+      context: .
+      dockerfile: src/orders-api/Dockerfile
+    container_name: orderflow-orders-api
+    restart: always
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=db;Database=${POSTGRES_DB:-orderflow_db};Username=${POSTGRES_USER:-orderflow_user};Password=${POSTGRES_PASSWORD:-orderflow_pass_secret};Port=5432
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=${RABBITMQ_USER:-guest}
+      - RabbitMQ__Password=${RABBITMQ_PASS:-guest}
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "5051:5051"
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # 4. Inventory Worker (.NET 8 Worker Service)
+  inventory-worker:
+    build:
+      context: .
+      dockerfile: src/inventory-worker/Dockerfile
+    container_name: orderflow-inventory-worker
+    restart: always
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=db;Database=${POSTGRES_DB:-orderflow_db};Username=${POSTGRES_USER:-orderflow_user};Password=${POSTGRES_PASSWORD:-orderflow_pass_secret};Port=5432
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=${RABBITMQ_USER:-guest}
+      - RabbitMQ__Password=${RABBITMQ_PASS:-guest}
+      - DOTNET_ENVIRONMENT=Development
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # 5. Frontend (React + Vite + Nginx)
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:5051
+    container_name: orderflow-frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - orders-api
+
 volumes:
   postgres_data:
