@@ -1,5 +1,8 @@
+using MassTransit;
+
 namespace InventoryWorker.Application.Contracts.Events;
 
+[MessageUrn("OrderFlow:StockRejectedEvent")]
 public record StockRejectedEvent(
     Guid EventId,
     Guid OrderId,

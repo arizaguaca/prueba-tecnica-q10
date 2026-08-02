@@ -3,6 +3,7 @@ using FluentValidation;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using OrdersApi.Application.Consumers;
+using OrdersApi.Application.Contracts.Events;
 using OrdersApi.Application.Interfaces;
 using OrdersApi.Application.Validation;
 using OrdersApi.Infrastructure.Messaging;
@@ -36,8 +37,13 @@ builder.Services.AddCors(options =>
 });
 
 // 2. Base de Datos (PostgreSQL)
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Host=localhost;Database=orderflow_db;Username=orderflow_user;Password=orderflow_pass_secret;Port=5432";
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection no está configurada. " +
+        "Define ConnectionStrings__DefaultConnection o copia appsettings.Development.json.example.");
+}
 builder.Services.AddDbContext<OrdersDbContext>(options =>
     options.UseNpgsql(connectionString));
 
@@ -56,15 +62,25 @@ builder.Services.AddMassTransit(x =>
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
-        var rabbitUser = builder.Configuration["RabbitMQ:Username"] ?? "guest";
-        var rabbitPass = builder.Configuration["RabbitMQ:Password"] ?? "guest";
+        var rabbitHost = builder.Configuration["RabbitMQ:Host"]
+            ?? throw new InvalidOperationException("RabbitMQ:Host no está configurado.");
+        var rabbitUser = builder.Configuration["RabbitMQ:Username"]
+            ?? throw new InvalidOperationException("RabbitMQ:Username no está configurado.");
+        var rabbitPass = builder.Configuration["RabbitMQ:Password"]
+            ?? throw new InvalidOperationException("RabbitMQ:Password no está configurado.");
 
         cfg.Host(rabbitHost, "/", h =>
         {
             h.Username(rabbitUser);
             h.Password(rabbitPass);
         });
+
+        cfg.UseRawJsonSerializer(RawSerializerOptions.AddTransportHeaders | RawSerializerOptions.CopyHeaders, isDefault: true);
+
+        // Mismo entity name en ambos servicios para que publish/consume usen el mismo exchange
+        cfg.Message<OrderCreatedEvent>(m => m.SetEntityName("order-created-event"));
+        cfg.Message<StockReservedEvent>(m => m.SetEntityName("stock-reserved-event"));
+        cfg.Message<StockRejectedEvent>(m => m.SetEntityName("stock-rejected-event"));
 
         cfg.ConfigureEndpoints(context);
     });

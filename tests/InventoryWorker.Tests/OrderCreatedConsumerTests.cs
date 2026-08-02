@@ -5,7 +5,7 @@ using Moq;
 using InventoryWorker.Application.Consumers;
 using InventoryWorker.Domain.Entities;
 using InventoryWorker.Infrastructure.Persistence;
-using OrdersApi.Application.Contracts.Events;
+using InventoryWorker.Application.Contracts.Events;
 using Xunit;
 
 namespace InventoryWorker.Tests;

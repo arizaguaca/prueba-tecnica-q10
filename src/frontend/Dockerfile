@@ -8,7 +8,7 @@ RUN npm ci
 
 # Copiar el código fuente y construir los archivos estáticos de producción
 COPY . .
-ARG VITE_API_URL=http://localhost:5051
+ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
 RUN npm run build
 

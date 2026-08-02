@@ -7,15 +7,15 @@ services:
     container_name: orderflow-db
     restart: always
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-orderflow_db}
-      POSTGRES_USER: ${POSTGRES_USER:-orderflow_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-orderflow_pass_secret}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-orderflow_user} -d ${POSTGRES_DB:-orderflow_db}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -26,11 +26,11 @@ services:
     container_name: orderflow-rabbitmq
     restart: always
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
     ports:
-      - "${RABBITMQ_PORT:-5672}:5672"
-      - "${RABBITMQ_UI_PORT:-15672}:15672"
+      - "${RABBITMQ_PORT}:5672"
+      - "${RABBITMQ_UI_PORT}:15672"
     healthcheck:
       test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
       interval: 5s
@@ -45,13 +45,13 @@ services:
     container_name: orderflow-orders-api
     restart: always
     environment:
-      - ConnectionStrings__DefaultConnection=Host=db;Database=${POSTGRES_DB:-orderflow_db};Username=${POSTGRES_USER:-orderflow_user};Password=${POSTGRES_PASSWORD:-orderflow_pass_secret};Port=5432
+      - ConnectionStrings__DefaultConnection=Host=db;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Port=5432
       - RabbitMQ__Host=rabbitmq
-      - RabbitMQ__Username=${RABBITMQ_USER:-guest}
-      - RabbitMQ__Password=${RABBITMQ_PASS:-guest}
+      - RabbitMQ__Username=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASS}
       - ASPNETCORE_ENVIRONMENT=Development
     ports:
-      - "5051:5051"
+      - "${ORDERS_API_PORT}:5051"
     depends_on:
       db:
         condition: service_healthy
@@ -66,10 +66,10 @@ services:
     container_name: orderflow-inventory-worker
     restart: always
     environment:
-      - ConnectionStrings__DefaultConnection=Host=db;Database=${POSTGRES_DB:-orderflow_db};Username=${POSTGRES_USER:-orderflow_user};Password=${POSTGRES_PASSWORD:-orderflow_pass_secret};Port=5432
+      - ConnectionStrings__DefaultConnection=Host=db;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Port=5432
       - RabbitMQ__Host=rabbitmq
-      - RabbitMQ__Username=${RABBITMQ_USER:-guest}
-      - RabbitMQ__Password=${RABBITMQ_PASS:-guest}
+      - RabbitMQ__Username=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASS}
       - DOTNET_ENVIRONMENT=Development
     depends_on:
       db:
@@ -83,11 +83,11 @@ services:
       context: ./src/frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=http://localhost:5051
+        - VITE_API_URL=${VITE_API_URL}
     container_name: orderflow-frontend
     restart: always
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT}:80"
     depends_on:
       - orders-api
 
