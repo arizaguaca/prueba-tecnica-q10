@@ -107,7 +107,7 @@ if (app.Environment.IsDevelopment())
 app.MapOrderEndpoints();
 app.MapHub<OrderHub>("/hubs/orders");
 
-// 9. Inicializar / Migrar Base de Datos Automáticamente al arrancar con Reintentos
+// 9. Inicializar tabla Orders al arrancar (CREATE IF NOT EXISTS + reintentos)
 using (var scope = app.Services.CreateScope())
 {
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
@@ -118,9 +118,23 @@ using (var scope = app.Services.CreateScope())
     {
         try
         {
-            logger.LogInformation("Conectando e inicializando la base de datos de Orders...");
-            await dbContext.Database.EnsureCreatedAsync();
-            logger.LogInformation("Base de datos de Orders lista.");
+            logger.LogInformation("Asegurando la creación de la tabla Orders...");
+
+            // CREATE TABLE IF NOT EXISTS evita la condición de carrera con inventory-worker:
+            // EnsureCreatedAsync no crea tablas si la BD ya tiene otras (Stocks, ProcessedEvents).
+            await dbContext.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS ""Orders"" (
+                    ""Id""             uuid                     NOT NULL,
+                    ""ClienteNombre""  varchar(200)             NOT NULL,
+                    ""Sku""            varchar(100)             NOT NULL,
+                    ""Cantidad""       integer                  NOT NULL,
+                    ""Estado""         text                     NOT NULL,
+                    ""CreadoEn""       timestamp with time zone NOT NULL,
+                    CONSTRAINT ""PK_Orders"" PRIMARY KEY (""Id"")
+                );
+            ");
+
+            logger.LogInformation("Tabla Orders lista.");
             break;
         }
         catch (Exception ex)
