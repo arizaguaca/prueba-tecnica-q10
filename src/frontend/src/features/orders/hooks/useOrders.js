@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
+import { HubConnectionBuilder, LogLevel, HttpTransportType, HubConnectionState } from '@microsoft/signalr';
 import { ordersApi } from '../api/ordersApi';
 import { env } from '../../../config/env';
 
@@ -10,6 +10,7 @@ export const useOrders = () => {
   const [connectionStatus, setConnectionStatus] = useState('Disconnected');
 
   const isFetchingRef = useRef(false);
+  const connectionRef = useRef(null);
 
   // 1. Initial REST Fetch (Fallback & initial state)
   const fetchOrders = useCallback(async (isSilent = false) => {
@@ -35,49 +36,56 @@ export const useOrders = () => {
 
   // 2. Setup SignalR Real-Time Connection
   useEffect(() => {
-    // Initial fetch on mount
     fetchOrders();
 
-    // Create SignalR Hub Connection
     const hubUrl = `${env.API_URL}/hubs/orders`;
-    const connection = new HubConnectionBuilder()
-      .withUrl(hubUrl)
-      .withAutomaticReconnect()
-      .configureLogging(LogLevel.Warning)
-      .build();
 
-    // Event listener: OrderUpdated
-    connection.on('OrderUpdated', (updatedOrder) => {
-      setOrders((prevOrders) => {
-        const index = prevOrders.findIndex((o) => o.id === updatedOrder.id);
-        if (index !== -1) {
-          const newOrders = [...prevOrders];
-          newOrders[index] = updatedOrder;
-          return newOrders;
-        } else {
-          return [updatedOrder, ...prevOrders];
-        }
-      });
-    });
+    if (!connectionRef.current) {
+      const connection = new HubConnectionBuilder()
+        .withUrl(hubUrl, {
+          skipNegotiation: true,
+          transport: HttpTransportType.WebSockets,
+        })
+        .withAutomaticReconnect()
+        .configureLogging(LogLevel.Warning)
+        .build();
 
-    // Start connection
-    connection
-      .start()
-      .then(() => {
-        setConnectionStatus('Connected');
-      })
-      .catch((err) => {
-        console.error('SignalR Connection Error: ', err);
-        setConnectionStatus('Error');
+      connection.on('OrderUpdated', (updatedOrder) => {
+        setOrders((prevOrders) => {
+          const index = prevOrders.findIndex((o) => o.id === updatedOrder.id);
+          if (index !== -1) {
+            const newOrders = [...prevOrders];
+            newOrders[index] = updatedOrder;
+            return newOrders;
+          } else {
+            return [updatedOrder, ...prevOrders];
+          }
+        });
       });
 
-    connection.onreconnecting(() => setConnectionStatus('Reconnecting'));
-    connection.onreconnected(() => setConnectionStatus('Connected'));
-    connection.onclose(() => setConnectionStatus('Disconnected'));
+      connection.onreconnecting(() => setConnectionStatus('Reconnecting'));
+      connection.onreconnected(() => setConnectionStatus('Connected'));
+      connection.onclose(() => setConnectionStatus('Disconnected'));
 
-    // Clean up on unmount
+      connectionRef.current = connection;
+    }
+
+    const conn = connectionRef.current;
+
+    if (conn.state === HubConnectionState.Disconnected) {
+      conn
+        .start()
+        .then(() => setConnectionStatus('Connected'))
+        .catch((err) => {
+          if (!err.message?.includes('stop() was called')) {
+            console.error('SignalR Connection Error: ', err);
+            setConnectionStatus('Error');
+          }
+        });
+    }
+
     return () => {
-      connection.stop();
+      // Keep connection alive across React StrictMode re-renders to prevent premature stop() calls
     };
   }, [fetchOrders]);
 
