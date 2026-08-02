@@ -1,13 +1,61 @@
+using FluentValidation;
+using MassTransit;
+using Microsoft.EntityFrameworkCore;
+using OrdersApi.Application.Consumers;
+using OrdersApi.Application.Interfaces;
+using OrdersApi.Application.Validation;
+using OrdersApi.Infrastructure.Messaging;
+using OrdersApi.Infrastructure.Persistence;
+using OrdersApi.Presentation.Endpoints;
+using OrdersApi.Presentation.Middleware;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// 1. Agregar Servicios Core / Endpoints API Explorer / Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// 2. Base de Datos (PostgreSQL)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? "Host=localhost;Database=orderflow_db;Username=orderflow_user;Password=orderflow_pass_secret;Port=5432";
+builder.Services.AddDbContext<OrdersDbContext>(options =>
+    options.UseNpgsql(connectionString));
+
+// 3. Registro de Repositorio y Event Publisher
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IEventPublisher, MassTransitEventPublisher>();
+
+// 4. Registro de Validadores (FluentValidation)
+builder.Services.AddValidatorsFromAssemblyContaining<CreateOrderRequestValidator>();
+
+// 5. Configuración de MassTransit con RabbitMQ
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<StockReservedConsumer>();
+    x.AddConsumer<StockRejectedConsumer>();
+
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
+        var rabbitUser = builder.Configuration["RabbitMQ:Username"] ?? "guest";
+        var rabbitPass = builder.Configuration["RabbitMQ:Password"] ?? "guest";
+
+        cfg.Host(rabbitHost, "/", h =>
+        {
+            h.Username(rabbitUser);
+            h.Password(rabbitPass);
+        });
+
+        cfg.ConfigureEndpoints(context);
+    });
+});
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// 6. Aplicar Middleware de Manejo de Errores Global
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+
+// 7. Pipeline de HTTP / Swagger
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -16,29 +64,22 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+// 8. Mapear Endpoints de la Aplicación
+app.MapOrderEndpoints();
 
-app.MapGet("/weatherforecast", () =>
+// 9. Inicializar / Migrar Base de Datos Automáticamente al arrancar
+using (var scope = app.Services.CreateScope())
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+    try
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
+        await dbContext.Database.EnsureCreatedAsync();
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Ocurrió un error inicializando la base de datos.");
+    }
+}
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
