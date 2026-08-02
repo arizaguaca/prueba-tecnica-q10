@@ -1,4 +1,4 @@
-namespace InventoryWorker.Application.Contracts.Events;
+namespace OrdersApi.Application.Contracts.Events;
 
 public record StockReservedEvent(
     Guid EventId,

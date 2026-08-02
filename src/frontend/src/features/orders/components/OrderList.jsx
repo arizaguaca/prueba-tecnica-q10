@@ -27,7 +27,7 @@ export const OrderList = ({ orders, loading, error }) => {
     <div className="card list-card">
       <div className="list-card-header">
         <h2 className="card-title">Listado de Pedidos</h2>
-        <span className="poll-badge">Auto-refresh cada 2s</span>
+        <span className="poll-badge">⚡ Tiempo Real (SignalR)</span>
       </div>
 
       {loading && orders.length === 0 ? (

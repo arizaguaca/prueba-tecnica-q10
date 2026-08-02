@@ -43,8 +43,31 @@ using (var scope = host.Services.CreateScope())
 
     try
     {
-        logger.LogInformation("Asegurando la creación de la base de datos de inventario...");
-        await dbContext.Database.EnsureCreatedAsync();
+        logger.LogInformation("Asegurando la creación de las tablas de inventario...");
+
+        // Crear tablas manualmente con IF NOT EXISTS para coexistir con OrdersDbContext
+        // en la misma base de datos compartida.
+        await dbContext.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS ""Stocks"" (
+                ""Sku""           varchar(100)  NOT NULL,
+                ""Disponibilidad"" integer       NOT NULL,
+                ""ActualizadoEn"" timestamp with time zone NOT NULL,
+                CONSTRAINT ""PK_Stocks"" PRIMARY KEY (""Sku"")
+            );
+        ");
+
+        await dbContext.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS ""ProcessedEvents"" (
+                ""EventId""       uuid          NOT NULL,
+                ""TipoEvento""    varchar(200)  NOT NULL,
+                ""Resultado""     varchar(50)   NOT NULL,
+                ""MotivoRechazo"" varchar(500)  NULL,
+                ""ProcesadoEn""   timestamp with time zone NOT NULL,
+                CONSTRAINT ""PK_ProcessedEvents"" PRIMARY KEY (""EventId"")
+            );
+        ");
+
+        logger.LogInformation("Tablas de inventario listas.");
 
         if (!await dbContext.Stocks.AnyAsync())
         {

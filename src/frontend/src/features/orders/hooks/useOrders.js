@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { ordersApi } from '../api/ordersApi';
+import { env } from '../../../config/env';
 
 export const useOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Using ref to prevent calling fetch multiple times simultaneously if a request is slow
+  const [connectionStatus, setConnectionStatus] = useState('Disconnected');
+
   const isFetchingRef = useRef(false);
 
+  // 1. Initial REST Fetch (Fallback & initial state)
   const fetchOrders = useCallback(async (isSilent = false) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
@@ -16,15 +19,13 @@ export const useOrders = () => {
     if (!isSilent) {
       setLoading(true);
     }
-    
+
     try {
       const data = await ordersApi.getOrders();
-      // Sort orders by CreadoEn or Date descending so newest orders appear on top
       const sorted = [...data].sort((a, b) => new Date(b.creadoEn) - new Date(a.creadoEn));
       setOrders(sorted);
       setError(null);
     } catch (err) {
-      _loggerError(err);
       setError(err.message || 'Error al cargar los pedidos.');
     } finally {
       setLoading(false);
@@ -32,34 +33,69 @@ export const useOrders = () => {
     }
   }, []);
 
-  // Safe wrapper for logging
-  const _loggerError = (err) => {
-    // Console log is fine here since it is for debugging, but in UI we show error state
-  };
-
+  // 2. Setup SignalR Real-Time Connection
   useEffect(() => {
+    // Initial fetch on mount
     fetchOrders();
 
-    // Polling setup: fetch orders silently every 2 seconds (2000 ms)
-    const interval = setInterval(() => {
-      fetchOrders(true);
-    }, 2000);
+    // Create SignalR Hub Connection
+    const hubUrl = `${env.API_URL}/hubs/orders`;
+    const connection = new HubConnectionBuilder()
+      .withUrl(hubUrl)
+      .withAutomaticReconnect()
+      .configureLogging(LogLevel.Warning)
+      .build();
 
+    // Event listener: OrderUpdated
+    connection.on('OrderUpdated', (updatedOrder) => {
+      setOrders((prevOrders) => {
+        const index = prevOrders.findIndex((o) => o.id === updatedOrder.id);
+        if (index !== -1) {
+          const newOrders = [...prevOrders];
+          newOrders[index] = updatedOrder;
+          return newOrders;
+        } else {
+          return [updatedOrder, ...prevOrders];
+        }
+      });
+    });
+
+    // Start connection
+    connection
+      .start()
+      .then(() => {
+        setConnectionStatus('Connected');
+      })
+      .catch((err) => {
+        console.error('SignalR Connection Error: ', err);
+        setConnectionStatus('Error');
+      });
+
+    connection.onreconnecting(() => setConnectionStatus('Reconnecting'));
+    connection.onreconnected(() => setConnectionStatus('Connected'));
+    connection.onclose(() => setConnectionStatus('Disconnected'));
+
+    // Clean up on unmount
     return () => {
-      clearInterval(interval);
+      connection.stop();
     };
   }, [fetchOrders]);
 
+  // 3. Add order function
   const addOrder = useCallback(async (orderData) => {
     try {
       const newOrder = await ordersApi.createOrder(orderData);
-      setOrders((prevOrders) => [newOrder, ...prevOrders]);
+      setOrders((prevOrders) => {
+        const exists = prevOrders.some((o) => o.id === newOrder.id);
+        if (exists) return prevOrders;
+        return [newOrder, ...prevOrders];
+      });
       return { success: true };
     } catch (err) {
-      return { 
-        success: false, 
-        error: err.message || 'Error al guardar el pedido.', 
-        errors: err.errors || null 
+      return {
+        success: false,
+        error: err.message || 'Error al guardar el pedido.',
+        errors: err.errors || null,
       };
     }
   }, []);
@@ -68,6 +104,7 @@ export const useOrders = () => {
     orders,
     loading,
     error,
+    connectionStatus,
     refresh: fetchOrders,
     addOrder,
   };

@@ -1,17 +1,25 @@
 using MassTransit;
+using Microsoft.AspNetCore.SignalR;
 using OrdersApi.Application.Contracts.Events;
+using OrdersApi.Application.DTOs;
 using OrdersApi.Application.Interfaces;
+using OrdersApi.Presentation.Hubs;
 
 namespace OrdersApi.Application.Consumers;
 
 public class StockRejectedConsumer : IConsumer<StockRejectedEvent>
 {
     private readonly IOrderRepository _orderRepository;
+    private readonly IHubContext<OrderHub> _hubContext;
     private readonly ILogger<StockRejectedConsumer> _logger;
 
-    public StockRejectedConsumer(IOrderRepository orderRepository, ILogger<StockRejectedConsumer> logger)
+    public StockRejectedConsumer(
+        IOrderRepository orderRepository,
+        IHubContext<OrderHub> hubContext,
+        ILogger<StockRejectedConsumer> logger)
     {
         _orderRepository = orderRepository;
+        _hubContext = hubContext;
         _logger = logger;
     }
 
@@ -26,6 +34,17 @@ public class StockRejectedConsumer : IConsumer<StockRejectedEvent>
             order.RejectOrder();
             await _orderRepository.UpdateAsync(order);
             _logger.LogInformation("Pedido {OrderId} rechazado. Motivo: {Motivo}", order.Id, message.Motivo);
+
+            var response = new OrderResponse(
+                order.Id,
+                order.ClienteNombre,
+                order.Sku,
+                order.Cantidad,
+                order.Estado,
+                order.CreadoEn
+            );
+
+            await _hubContext.Clients.All.SendAsync("OrderUpdated", response);
         }
         else
         {

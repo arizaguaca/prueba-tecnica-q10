@@ -7,13 +7,25 @@ using OrdersApi.Application.Validation;
 using OrdersApi.Infrastructure.Messaging;
 using OrdersApi.Infrastructure.Persistence;
 using OrdersApi.Presentation.Endpoints;
+using OrdersApi.Presentation.Hubs;
 using OrdersApi.Presentation.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Agregar Servicios Core / Endpoints API Explorer / Swagger
+// 1. Agregar Servicios Core / Endpoints API Explorer / Swagger / CORS / SignalR
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSignalR();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.SetIsOriginAllowed(_ => true)
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
 
 // 2. Base de Datos (PostgreSQL)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -52,6 +64,9 @@ builder.Services.AddMassTransit(x =>
 
 var app = builder.Build();
 
+// Habilitar CORS
+app.UseCors("AllowFrontend");
+
 // 6. Aplicar Middleware de Manejo de Errores Global
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
@@ -64,8 +79,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// 8. Mapear Endpoints de la Aplicación
+// 8. Mapear Endpoints de la Aplicación y Hub de SignalR
 app.MapOrderEndpoints();
+app.MapHub<OrderHub>("/hubs/orders");
 
 // 9. Inicializar / Migrar Base de Datos Automáticamente al arrancar
 using (var scope = app.Services.CreateScope())
