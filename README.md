@@ -263,7 +263,6 @@ docker compose up
 | **Orders API**          | [http://localhost:5051](http://localhost:5051)                 | API REST                                             |
 | **Swagger UI**          | [http://localhost:5051/swagger](http://localhost:5051/swagger) | Documentación interactiva de la API                  |
 | **RabbitMQ Management** | [http://localhost:15672](http://localhost:15672)               | Dashboard del broker (`guest` / `guest` por defecto) |
-| **PostgreSQL**          | `localhost:5432`                                               | Base de datos (acceso directo opcional)              |
 
 
 
@@ -493,11 +492,10 @@ Para desarrollo local fuera de Docker, los servicios .NET leen de `appsettings.D
 ## 📡 9. API REST — Referencia Rápida
 
 
-| Método | Endpoint       | Descripción              |
-| ------ | -------------- | ------------------------ |
-| `POST` | `/orders`      | Crear pedido             |
-| `GET`  | `/orders`      | Listar todos los pedidos |
-| `GET`  | `/orders/{id}` | Obtener pedido por ID    |
+| Método | Endpoint  | Descripción              |
+| ------ | --------- | ------------------------ |
+| `POST` | `/orders` | Crear pedido             |
+| `GET`  | `/orders` | Listar todos los pedidos |
 
 
 **Body de creación (**`POST /orders`**):**
