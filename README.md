@@ -236,15 +236,23 @@ El hook `useOrders` combina:
 
 ### Configuración de variables de entorno
 
-```bash
+
+
 # 1. Copiar plantilla de variables en la raíz del monorepo
+
+```bash
 cp .env.example .env
+```
+
+
 
 ### Levantar todo el sistema con un solo comando
 
 ```bash
-docker compose up --build
+docker compose up
 ```
+
+
 
 ### URLs de acceso
 
@@ -258,24 +266,18 @@ docker compose up --build
 | **PostgreSQL**          | `localhost:5432`                                               | Base de datos (acceso directo opcional)              |
 
 
+
+
 ### Verificar el flujo completo
 
 ```bash
-
-```
-
-
-
 # Crear un pedido
-
-curl -X POST [http://localhost:5051/orders](http://localhost:5051/orders)   
-  -H "Content-Type: application/json"   
+curl -X POST http://localhost:5051/orders \
+  -H "Content-Type: application/json" \
   -d '{"clienteNombre": "Juan Pérez", "sku": "ABC-01", "cantidad": 2}'
 
 # Consultar estado (esperar 2-3 segundos para procesamiento asíncrono)
-
-curl [http://localhost:5051/orders](http://localhost:5051/orders)
-
+curl http://localhost:5051/orders
 ```
 
 Estado esperado: `"estado": "Confirmed"` (stock disponible) o `"Rejected"` (sin stock).
@@ -293,6 +295,8 @@ Cobertura principal:
 - Confirmación/rechazo de pedidos vía consumidores de respuesta.
 
 ---
+
+
 
 ## 📁 4. Estructura del Monorepo
 
@@ -323,11 +327,15 @@ OrderFlow/
 
 ---
 
+
+
 ## 🛡️ 5. Análisis de Resiliencia y Manejo de Fallos
 
 Esta sección responde explícitamente a escenarios de falla distribuida, un requisito clave en sistemas orientados a eventos.
 
 ### Escenarios críticos de falla distribuida
+
+
 
 #### ¿Qué pasa si `InventoryWorker` no responde o está caído?
 
@@ -341,6 +349,8 @@ Orders API ──► RabbitMQ (cola persistente) ──X── Inventory Worker 
                      └── Mensajes retenidos hasta recovery del worker
 ```
 
+
+
 #### ¿Qué pasa si el broker de mensajería (RabbitMQ) está caído cuando `OrdersApi` intenta publicar?
 
 La API **captura la excepción de conexión** y retorna una **respuesta HTTP controlada** (ej. `503 Service Unavailable` o un mensaje claro de error vía `ProblemDetails` RFC 7807) para no dejar peticiones colgadas ni corromper el estado.
@@ -350,6 +360,8 @@ El `GlobalExceptionHandlerMiddleware` centraliza el manejo de errores no control
 > **Nota de diseño:** En la implementación actual, un fallo de publicación durante `POST /orders` se propaga como error HTTP controlado. Para producción, el patrón **Transactional Outbox** (ver sección 6) eliminaría el riesgo de inconsistencia entre persistencia del pedido y publicación del evento.
 
 ---
+
+
 
 ### Matriz de escenarios adicionales
 
@@ -366,6 +378,8 @@ El `GlobalExceptionHandlerMiddleware` centraliza el manejo de errores no control
 | **Configuración faltante**           | Los servicios .NET fallan al arrancar con mensaje explícito si falta connection string o credenciales RabbitMQ. |
 
 
+
+
 ### Estados del pedido
 
 ```
@@ -374,6 +388,8 @@ Pending ──► Confirmed   (stock reservado exitosamente)
 ```
 
 ---
+
+
 
 ## ⚖️ 6. Trade-offs Asumidos
 
@@ -390,6 +406,8 @@ Pending ──► Confirmed   (stock reservado exitosamente)
 
 
 ---
+
+
 
 ## 🚀 7. ¿Qué haría distinto con más tiempo?
 
@@ -408,6 +426,8 @@ Para asegurar **atomicidad completa** entre el guardado del pedido en la BD y la
                     Background Processor
                     (lee outbox y publica)
 ```
+
+
 
 ### Resiliencia con Polly
 
@@ -442,6 +462,8 @@ GET /orders?page=1&pageSize=20&sortBy=creadoEn&sortDir=desc
 
 ---
 
+
+
 ## 🔧 8. Configuración por Variables de Entorno
 
 Toda configuración sensible se externaliza. **No hay secretos ni connection strings en el código fuente.**
@@ -465,6 +487,8 @@ Toda configuración sensible se externaliza. **No hay secretos ni connection str
 Para desarrollo local fuera de Docker, los servicios .NET leen de `appsettings.Development.json` (gitignored; plantilla en `.example`).
 
 ---
+
+
 
 ## 📡 9. API REST — Referencia Rápida
 
